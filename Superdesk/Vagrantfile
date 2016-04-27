@@ -1,0 +1,49 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "debian/jessie64"
+	config.vm.hostname = 'superdesk'
+  # config.vm.box_check_update = false
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+
+  # config.vm.network "private_network", ip: "192.168.33.10"
+	#config.vm.network "private_network", type: "dhcp"
+  config.vm.network "public_network"
+
+  # config.vm.synced_folder "../data", "/vagrant_data"
+  config.vm.provider "virtualbox" do |vb|
+  #   # Display the VirtualBox GUI when booting the machine
+  #   vb.gui = true
+  	vb.memory = "4096"
+  end
+  config.vm.provision "shell", inline: <<-SHELL
+
+		echo "--> INITIAL REPO UPDATE"
+  	sudo apt-get update
+
+		echo "--> INSTALLING SOME SOFTWARE"
+		sudo apt-get install -y python-virtualenv git apt-transport-https ca-certificates avahi-daemon
+		sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+		echo "deb https://apt.dockerproject.org/repo debian-jessie main" > /etc/apt/sources.list.d/docker.list
+
+		echo "--> UPDATING THE REPOS AGAIN (WITH THE DOCKER REPO)"
+		sudo apt-get update
+		sudo apt-get install -y docker-engine
+
+		echo "--> ADDING VAGRANT USER TO DOCKER GROUP"
+#		sudo groupadd docker //Already added by default
+		sudo gpasswd -a vagrant docker
+		sudo service docker start
+
+		echo "--> SETTING UP SUPERDESK"
+		cd /home/vagrant
+		git clone https://github.com/superdesk/superdesk.git
+		cd superdesk
+		git clone https://github.com/superdesk/superdesk-content-api.git
+		cd ..
+		sudo chown -R vagrant:vagrant superdesk
+
+		echo "==> THAT'S IT! <=="
+	SHELL
+end
